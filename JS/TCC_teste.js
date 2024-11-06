@@ -23,6 +23,7 @@ document.addEventListener('DOMContentLoaded', function () {
         appId: "1:119567572705:web:e7cc55ebef7cd88c0621a0"
     };
     firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
 
     //registro
     document.getElementById('register-form').addEventListener('submit', async function (event) {
@@ -31,90 +32,129 @@ document.addEventListener('DOMContentLoaded', function () {
         const password = document.getElementById('register-password').value;
         try {
           const createUserResponse = await firebase.auth().createUserWithEmailAndPassword(username, password);
-          const user = createUserResponse.user; // Get the newly created user object
+          const user = createUserResponse.user;
+
+          await db.collection('users').doc(user.uid).set({
+            username: username,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+          });
       
           alert('Conta criada com sucesso! Faça login para continuar.');
           document.getElementById('register-section').style.display = 'none';
           document.getElementById('login-section').style.display = 'block';
         } catch (error) {
           console.error("Error creating user:", error);
-          // Handle errors appropriately, e.g., display an error message to the user
         }
       });
 
     // Login
-    document.getElementById('login-form').addEventListener('submit', function (event) {
+    document.getElementById('login-form').addEventListener('submit', async function (event) {
         event.preventDefault();
         const username = document.getElementById('login-username').value.trim();
         const password = document.getElementById('login-password').value;
-        
-    firebase.initializeApp(firebaseConfig);
     
-        // Autenticação com Firebase
-        firebase.auth().signInWithEmailAndPassword(username, password)
-            .then((userCredential) => {
-                // Login bem-sucedido
-                alert('Login bem-sucedido!');
+        try {
+            const userCredential = await firebase.auth().signInWithEmailAndPassword(username, password);
+            const user = userCredential.user;
+    
+            const userDoc = await db.collection('users').doc(user.uid).get();
+            
+            if (userDoc.exists) {
+                const userData = userDoc.data();
+                alert(`Bem-vindo, ${userData.username}!`);
                 document.getElementById('login-section').style.display = 'none';
                 document.getElementById('project-section').style.display = 'block';
-                document.getElementById('projectListSection').style.display = 'block';
-            })
-            .catch((error) => {
-                const errorCode = error.code;
-                const errorMessage = error.message;
                 
-                if (errorCode === 'auth/user-not-found') {
-                    alert('Usuário não encontrado!');
-                } else if (errorCode === 'auth/wrong-password') {
-                    alert('Senha incorreta!');
-                } else {
-                    alert('Erro: ' + errorMessage);
-                }
-            });
+                // Carregar projetos do usuário
+                loadUserProjects(user.uid);
+            } else {
+                console.log("Nenhum dado encontrado para o usuário!");
+            }
+        } catch (error) {
+            console.error("Erro ao fazer login:", error);
+            alert('Erro ao fazer login: ' + error.message);
+        }
     });
+    
+    // Função para carregar projetos do Firestore e exibir na lista
+    async function loadUserProjects(userId) {
+        const projectList = document.getElementById('project-list');
+        projectList.innerHTML = ''; // Limpa a lista antes de carregar os projetos
+        
+        try {
+            const projectsSnapshot = await db.collection('users').doc(userId).collection('projects').get();
+            projectsSnapshot.forEach(doc => {
+                const projectData = doc.data();
+                displayProject(projectData.projectName, projectData.projectDesc);
+            });
+        } catch (error) {
+            console.error("Erro ao carregar projetos:", error);
+        }
+    }
 
-
-    // Adiciona projeto à lista de projetos
-    document.getElementById('new-project-form').addEventListener('submit', function (event) {
+    // Adicionar e salvar novo projeto no Firestore
+    document.getElementById('new-project-form').addEventListener('submit', async function (event) {
         event.preventDefault();
         
         const projectName = document.getElementById('project-name').value.trim();
         const projectDesc = document.getElementById('project-desc').value.trim();
+        const user = firebase.auth().currentUser;
         
         if (!projectName || !projectDesc) {
             alert('Por favor, preencha todos os campos do projeto.');
             return;
         }
 
+        if (user) {
+            try {
+                const projectData = {
+                    projectName: projectName,
+                    projectDesc: projectDesc,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                };
+                
+                // Salva no Firestore na subcoleção 'projects' do usuário
+                await db.collection('users').doc(user.uid).collection('projects').add(projectData);
+                
+                // Exibe o projeto na lista da interface
+                displayProject(projectName, projectDesc);
+                document.getElementById('new-project-form').reset();
+                alert('Projeto adicionado com sucesso!');
+            } catch (error) {
+                console.error("Erro ao adicionar projeto:", error);
+            }
+        } else {
+            alert('Você precisa estar logado para adicionar um projeto.');
+        }
+    });
+
+    // Função para exibir um projeto na interface
+    function displayProject(projectName, projectDesc) {
         const projectList = document.getElementById('project-list');
         const newProject = document.createElement('li');
 
-    newProject.innerHTML = `
-        <div class="project-header">
-            <strong class="project-title">${projectName}</strong>
-            <div>
-                <button class="edit-btn" onclick="editProject(this)">Editar</button>
-                <button class="delete-btn" onclick="deleteProject(this)">Excluir</button>
+        newProject.innerHTML = `
+            <div class="project-header">
+                <strong class="project-title">${projectName}</strong>
+                <div>
+                    <button class="edit-btn" onclick="editProject(this)">Editar</button>
+                    <button class="delete-btn" onclick="deleteProject(this)">Excluir</button>
+                </div>
             </div>
-        </div>
-        <p class="project-desc">${projectDesc}</p>
-        <div class="project-nav">
-            <button class="nav-btn active" onclick="showPhase(this, 'initiation')">Inicio</button>
-            <button class="nav-btn" onclick="showPhase(this, 'planning')">Planejamento</button>
-            <button class="nav-btn" onclick="showPhase(this, 'execution')">Execução</button>
-            <button class="nav-btn" onclick="showPhase(this, 'monitoring')">Monitoramento</button>
-            <button class="nav-btn" onclick="showPhase(this, 'closure')">Encerramento</button>
-            <button class="nav-btn" onclick="showPhase(this, 'schedule')">Cronograma</button>
-        </div>
-        ${generateProjectPhaseHTML()}
-    `;
-    
-
-
+            <p class="project-desc">${projectDesc}</p>
+            <div class="project-nav">
+                <button class="nav-btn active" onclick="showPhase(this, 'initiation')">Inicio</button>
+                <button class="nav-btn" onclick="showPhase(this, 'planning')">Planejamento</button>
+                <button class="nav-btn" onclick="showPhase(this, 'execution')">Execução</button>
+                <button class="nav-btn" onclick="showPhase(this, 'monitoring')">Monitoramento</button>
+                <button class="nav-btn" onclick="showPhase(this, 'closure')">Encerramento</button>
+                <button class="nav-btn" onclick="showPhase(this, 'schedule')">Cronograma</button>
+            </div>
+            ${generateProjectPhaseHTML()}
+        `;
         
         projectList.appendChild(newProject);
-        document.getElementById('new-project-form').reset();
-    });
+    }
 
     function generateProjectPhaseHTML() {
         return `
