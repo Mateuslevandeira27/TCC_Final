@@ -115,6 +115,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 
                 // Salva no Firestore na subcoleção 'projects' do usuário
                 await db.collection('users').doc(user.uid).collection('projects').add(projectData);
+                 // Salva no Firestore e armazena o ID do documento criado
+                 const projectRef = await db.collection('users').doc(user.uid).collection('projects').add(projectData);
                 
                 // Exibe o projeto na lista da interface
                 displayProject(projectName, projectDesc);
@@ -155,6 +157,7 @@ document.addEventListener('DOMContentLoaded', function () {
         
         projectList.appendChild(newProject);
     }
+
 
     function generateProjectPhaseHTML() {
         return `
@@ -294,7 +297,7 @@ function deleteProject(button) {
     project.remove();
 }
 
-// Outros códigos relacionados ao checklist...
+
 
 function toggleDone(square) {
     square.classList.toggle('checked');
