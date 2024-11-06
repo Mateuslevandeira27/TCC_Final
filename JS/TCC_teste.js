@@ -13,45 +13,66 @@ document.addEventListener('DOMContentLoaded', function () {
         registerSection.style.display = 'none';
         loginSection.style.display = 'block';
     });
+    
+    const firebaseConfig = {
+        apiKey: "AIzaSyApA1QtAzmhjmvOWhQvbtMbflFa7isUdSg",
+        authDomain: "flex-project-d8920.firebaseapp.com",
+        projectId: "flex-project-d8920",
+        storageBucket: "flex-project-d8920.firebasestorage.app",
+        messagingSenderId: "119567572705",
+        appId: "1:119567572705:web:e7cc55ebef7cd88c0621a0"
+    };
+    firebase.initializeApp(firebaseConfig);
+
+    //registro
+    document.getElementById('register-form').addEventListener('submit', async function (event) {
+        event.preventDefault();
+        const username = document.getElementById('register-username').value.trim();
+        const password = document.getElementById('register-password').value;
+        try {
+          const createUserResponse = await firebase.auth().createUserWithEmailAndPassword(username, password);
+          const user = createUserResponse.user; // Get the newly created user object
+      
+          alert('Conta criada com sucesso! Faça login para continuar.');
+          document.getElementById('register-section').style.display = 'none';
+          document.getElementById('login-section').style.display = 'block';
+        } catch (error) {
+          console.error("Error creating user:", error);
+          // Handle errors appropriately, e.g., display an error message to the user
+        }
+      });
 
     // Login
     document.getElementById('login-form').addEventListener('submit', function (event) {
         event.preventDefault();
         const username = document.getElementById('login-username').value.trim();
         const password = document.getElementById('login-password').value;
-
-        const storedUser = localStorage.getItem(username);
-        if (storedUser) {
-            const user = JSON.parse(storedUser);
-            if (user.password === password) {
+        
+    firebase.initializeApp(firebaseConfig);
+    
+        // Autenticação com Firebase
+        firebase.auth().signInWithEmailAndPassword(username, password)
+            .then((userCredential) => {
+                // Login bem-sucedido
                 alert('Login bem-sucedido!');
-                loginSection.style.display = 'none';
-                projectSection.style.display = 'block';
-                projectListSection.style.display = 'block';
-            } else {
-                alert('Senha incorreta!');
-            }
-        } else {
-            alert('Usuário não encontrado!');
-        }
+                document.getElementById('login-section').style.display = 'none';
+                document.getElementById('project-section').style.display = 'block';
+                document.getElementById('projectListSection').style.display = 'block';
+            })
+            .catch((error) => {
+                const errorCode = error.code;
+                const errorMessage = error.message;
+                
+                if (errorCode === 'auth/user-not-found') {
+                    alert('Usuário não encontrado!');
+                } else if (errorCode === 'auth/wrong-password') {
+                    alert('Senha incorreta!');
+                } else {
+                    alert('Erro: ' + errorMessage);
+                }
+            });
     });
 
-    // Registro
-    document.getElementById('register-form').addEventListener('submit', function (event) {
-        event.preventDefault();
-        const username = document.getElementById('register-username').value.trim();
-        const password = document.getElementById('register-password').value;
-
-        if (localStorage.getItem(username)) {
-            alert('Usuário já existe!');
-        } else {
-            const user = { username, password };
-            localStorage.setItem(username, JSON.stringify(user));
-            alert('Conta criada com sucesso! Faça login para continuar.');
-            registerSection.style.display = 'none';
-            loginSection.style.display = 'block';
-        }
-    });
 
     // Adiciona projeto à lista de projetos
     document.getElementById('new-project-form').addEventListener('submit', function (event) {
