@@ -28,40 +28,44 @@ document.addEventListener('DOMContentLoaded', function () {
     //registro
     document.getElementById('register-form').addEventListener('submit', async function (event) {
         event.preventDefault();
-        const username = document.getElementById('register-username').value.trim();
+        const email = document.getElementById('register-email').value.trim();
         const password = document.getElementById('register-password').value;
         try {
-          const createUserResponse = await firebase.auth().createUserWithEmailAndPassword(username, password);
+          const createUserResponse = await firebase.auth().createUserWithEmailAndPassword(email, password);
           const user = createUserResponse.user;
 
           await db.collection('users').doc(user.uid).set({
-            username: username,
+            email: email,
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
           });
       
-          alert('Conta criada com sucesso! Faça login para continuar.');
-          document.getElementById('register-section').style.display = 'none';
-          document.getElementById('login-section').style.display = 'block';
+          console.log("Usuário criado com sucesso:", user.uid);
+            alert('Conta criada com sucesso! Faça login para continuar.');
+
+            // Atualiza o display das seções
+            registerSection.style.display = 'none';
+            loginSection.style.display = 'block';
         } catch (error) {
-          console.error("Error creating user:", error);
+            console.error("Erro ao criar usuário:", error);
+            alert("Erro ao criar usuário: " + error.message);
         }
-      });
+    });
 
     // Login
     document.getElementById('login-form').addEventListener('submit', async function (event) {
         event.preventDefault();
-        const username = document.getElementById('login-username').value.trim();
+        const email = document.getElementById('login-email').value.trim();
         const password = document.getElementById('login-password').value;
     
         try {
-            const userCredential = await firebase.auth().signInWithEmailAndPassword(username, password);
+            const userCredential = await firebase.auth().signInWithEmailAndPassword(email, password);
             const user = userCredential.user;
     
             const userDoc = await db.collection('users').doc(user.uid).get();
             
             if (userDoc.exists) {
                 const userData = userDoc.data();
-                alert(`Bem-vindo, ${userData.username}!`);
+                alert(`Bem-vindo, ${userData.email}!`);
                 document.getElementById('login-section').style.display = 'none';
                 document.getElementById('project-section').style.display = 'block';
                 
